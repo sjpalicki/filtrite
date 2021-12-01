@@ -5,16 +5,10 @@ set -e
 log () {
     echo `date +"%m/%d/%Y %H:%M:%S"` "$@"
 }
+
 cleanup() {
     rm -f filtrite >> /dev/null 2>&1
 }
-filtrite() {
-    echo "::group::List: $1"
-    log "Start generating $1"
-    ./filtrite "lists/$1.txt" "dist/$1.dat" "logs/$1.log"
-    echo "::endgroup::"
-}
-
 cleanup
 
 # Make sure all dependencies are installed
@@ -44,17 +38,22 @@ mkdir -p dist
 mkdir -p logs
 echo "::endgroup::"
 
-# Default is a special case because of the download
-echo "::group::List: bromite-default"
-# Download default bromite filter list
-wget -O lists/bromite-default.txt https://raw.githubusercontent.com/bromite/filters/master/lists.txt
-log "Start generating bromite-default"
-./filtrite lists/bromite-default.txt dist/bromite-default.dat logs/bromite-default.log
-echo "::endgroup::"
+# If the default list file exists, we overwrite it with the actual official list
+if [[ -f "lists/bromite-default.txt" ]]; then
+    echo "::group::Downloading official list"
+    wget -O "lists/bromite-default.txt" "https://raw.githubusercontent.com/bromite/filters/master/lists.txt"
+    echo "::endgroup::"
+fi
 
-# All other lists can be listed here
-filtrite bromite-extended
+# Now that everything is set up, we can start actually generating filter lists
+./filtrite 
 
 echo "::group::Cleanup"
 cleanup
+
+# Reset the downloaded list to the previous text, in case this is run locally
+if [[ -f "lists/bromite-default.txt" ]]; then
+    git restore lists/bromite-default.txt
+fi
+
 echo "::endgroup::"
